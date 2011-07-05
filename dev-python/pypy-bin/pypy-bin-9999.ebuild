@@ -8,16 +8,13 @@ inherit eutils
 
 DESCRIPTION="PyPy is a very compliant implementation of the Python language"
 HOMEPAGE="http://pypy.org/"
-SRC_URI="amd64? ( !jit? ( http://buildbot.pypy.org/nightly/trunk/pypy-c-nojit-latest-linux64.tar.bz2 )
-                  jit? ( http://buildbot.pypy.org/nightly/trunk/pypy-c-jit-latest-linux64.tar.bz2 ) )
-		 x86? ( !jit? ( http://buildbot.pypy.org/nightly/trunk/pypy-c-nojit-latest-linux.tar.bz2 )
-                stackless? ( http://buildbot.pypy.org/nightly/trunk/pypy-c-stackless-latest-linux.tar.bz2 )
-				jit? ( http://buildbot.pypy.org/nightly/trunk/pypy-c-jit-latest-linux.tar.bz2 ) )"
+SRC_URI=""
 
 LICENSE="MIT"
 SLOT="0"
 KEYWORDS="~x86 ~amd64"
 IUSE="+jit stackless"
+RESTRICT="mirror"
 
 MY_PN="pypy"
 S="${WORKDIR}/pypy-c-*-linux*"
@@ -39,9 +36,29 @@ pkg_setup() {
 	fi
 }
 
-src_prepare() {
-	cd ${S} || die 'cd failed'
-	fperms -w bin/${MY_PN}
+src_unpack() {
+	if use amd64 ; then
+		if use jit ; then
+			SRC="pypy-c-jit-latest-linux64.tar.bz2"
+		else
+			SRC="pypy-c-nojit-latest-linux64.tar.bz2"
+		fi
+	elif use x86 ; then
+		if use jit ; then
+			SRC="pypy-c-jit-latest-linux.tar.bz2"
+		elif use stackless ; then
+			SRC="pypy-c-stackless-latest-linux.tar.bz2"
+		else
+			SRC="pypy-c-jit-latest-linux.tar.bz2"
+		fi
+	fi
+
+	if [ -z "${FETCH_COMMAND}" ]; then
+		MY_FETCH="wget"
+	else
+		MY_FETCH=${FETCH_COMMAND}
+	fi
+	${MY_FETCH} -O - "http://buildbot.pypy.org/nightly/trunk/${SRC}" | tar jxf -
 }
 
 src_install() {
@@ -49,6 +66,7 @@ src_install() {
 	insinto /opt/${PN}
 	cd ${S} || die 'cd failed'
 	doins -r ./* || die 'doins failed'
+	fperms -w /opt/${PN}/bin/${MY_PN}
 	fperms a+x /opt/${PN}/bin/${MY_PN}
 	dosym /opt/${PN}/bin/${MY_PN} /usr/bin/${MY_PN} || die 'dosym failed'
 	dodoc LICENSE
